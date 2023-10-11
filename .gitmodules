@@ -1,0 +1,3 @@
+[submodule "thirdparty/MQSensorsLib"]
+	path = thirdparty/MQSensorsLib
+	url = https://github.com/miguel5612/MQSensorsLib.git
