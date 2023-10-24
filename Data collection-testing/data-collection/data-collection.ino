@@ -6,17 +6,20 @@
 #define         Board                       ("Arduino UNO")
 #define         MQ2_pin                     (A0)  //Analog input 0
 #define         MQ4_pin                     (A1)  //Analog input 1
+#define         MQ5_pin                     (A2)  //Analog input 1
 #define         DHT11_PIN                    7
 /***********************Software Related Macros************************************/
 #define         Voltage_Resolution      (5)
-#define         ADC_Bit_Resolution      (10) // For arduino UNO/MEGA/NANO
+#define         ADC_Bit_Resolution      (10)   // For arduino UNO/MEGA/NANO
 #define         RatioMQ2CleanAir        (9.83) //RS / R0 = 60 ppm
-#define         RatioMQ4CleanAir        (4.4) //RS / R0 = 60 ppm 
+#define         RatioMQ4CleanAir        (4.4)  //RS / R0 = 60 ppm 
+#define         RatioMQ5CleanAir        (6.5)  //RS / R0 = 6.5 ppm 
 /*****************************Globals***********************************************/
 // Sensor
 dht DHT;
 MQUnifiedsensor MQ2(Board, Voltage_Resolution, ADC_Bit_Resolution, MQ2_pin, "MQ-2");
 MQUnifiedsensor MQ4(Board, Voltage_Resolution, ADC_Bit_Resolution, MQ4_pin, "MQ-4");
+MQUnifiedsensor MQ5(Board, Voltage_Resolution, ADC_Bit_Resolution, MQ5_pin, "MQ-5");
 
 // Constant
 #define WARM_UP_TIME 20000 //millisecond
@@ -25,6 +28,7 @@ MQUnifiedsensor MQ4(Board, Voltage_Resolution, ADC_Bit_Resolution, MQ4_pin, "MQ-
 #define SAMPLING_FREQ_HZ 2                         // Sampling frequency (Hz)
 #define SAMPLING_PERIOD_MS 1000 / SAMPLING_FREQ_HZ   // Sampling period (ms)
 
+float MQ_setup_calib(MQUnifiedsensor MQ, String name, int regression_method, float RsR0CleanAir);
 
 
 
@@ -37,8 +41,6 @@ void setup(){
   pinMode(A1, INPUT); 
 
   //MQ2
-  MQ2.setRegressionMethod(1); //_PPM =  a*ratio^b
-  MQ2.setA(3616.1); MQ2.setB(-2.675); // Configure the equation to to calculate LPG concentration
     /*
     MQ2 Exponential regression:
     Gas    | a      | b
@@ -48,10 +50,8 @@ void setup(){
     Alcohol| 3616.1 | -2.675
     Propane| 658.71 | -2.168
    */
-  MQ2.init(); 
 
   //MQ4
-  MQ4.setRegressionMethod(1);
     /*
       Exponential regression:
     Gas    | a      | b
@@ -61,7 +61,19 @@ void setup(){
     Alcohol| 60000000000 | -14.01
     smoke  | 30000000 | -8.308
    */
-  MQ4.init(); 
+  
+  //MQ5
+  /*
+    Exponential regression:
+  Gas    | a      | b
+  H2     | 1163.8 | -3.874
+  LPG    | 80.897 | -2.431
+  CH4    | 177.65 | -2.56
+  CO     | 491204 | -5.826
+  Alcohol| 97124  | -4.918
+  */
+
+
 
   // Pre heat
   Serial.println("Sensors are warming up...");
@@ -70,50 +82,30 @@ void setup(){
 
   
   //Calibration
-  Serial.print("Calibrating please wait...");
-  float calcR0_MQ2 = 0;
-  float calcR0_MQ4 = 0;
+  float calcR0_MQ = 0;
 
-  for(int i = 1; i<=10; i ++)
-  {
-    MQ2.update(); // Update data, the arduino will read the voltage from the analog pin
-    calcR0_MQ2 += MQ2.calibrate(RatioMQ2CleanAir);
-    MQ4.update(); // Update data, the arduino will read the voltage from the analog pin
-    calcR0_MQ4 += MQ4.calibrate(RatioMQ4CleanAir);
-    Serial.print(".");
-  }
-  MQ2.setR0(calcR0_MQ2/10);
-  Serial.println("MQ2 calibration done.");
-  MQ4.setR0(calcR0_MQ4/10);
-  Serial.println("MQ4 calibration done.");
-  
-  if(isinf(calcR0_MQ2)) {Serial.println("Warning: Conection issue, MQ2 R0 is infinite (Open circuit detected) please check your wiring and supply"); while(1);}
-  if(calcR0_MQ2 == 0){Serial.println("Warning: Conection issue found, MQ2 R0 is zero (Analog pin shorts to ground) please check your wiring and supply"); while(1);}
-  if(isinf(calcR0_MQ4)) {Serial.println("Warning: Conection issue, MQ4 R0 is infinite (Open circuit detected) please check your wiring and supply"); while(1);}
-  if(calcR0_MQ4 == 0){Serial.println("Warning: Conection issue found, MQ4 R0 is zero (Analog pin shorts to ground) please check your wiring and supply"); while(1);}
-
-
+  calcR0_MQ = MQ_setup_calib(MQ2, "MQ-2", 1, RatioMQ2CleanAir);
+  MQ2.setR0(calcR0_MQ/10);
+  calcR0_MQ = MQ_setup_calib(MQ4, "MQ-4",1, RatioMQ4CleanAir);
+  MQ4.setR0(calcR0_MQ/10);
+  calcR0_MQ = MQ_setup_calib(MQ5, "MQ-5",1, RatioMQ5CleanAir);
+  MQ5.setR0(calcR0_MQ/10);
 
   Serial.println("All initialized");
+  Serial.println("timestamp,temp,humd,MQ2_alcohol,MQ4_LPG,MQ4_CH4,MQ5_LPG,MQ5_CH4,LIG");
 
 }
 
 void loop(){
 
   unsigned long timestamp;
-  float MQ2_value; 
+  float MQ2_alcohol; 
   float MQ4_LPG;
   float MQ4_CH4;
-  float MQ4_CO;
-  float MQ4_Alcohol;
-  float MQ4_Smoke;
+  float MQ5_LPG;
+  float MQ5_CH4;
 
   float LIG_value;
-  MQ2.init();
-
-
-  // Print header
-  Serial.println("timestamp,temp,humd,MQ2_alcohol,MQ4_LPG,MQ4_CH4,MQ4_CO,MQ4_Alcohol,MQ4_Smoke,LIG");
 
 
   for (int i = 0; i < NUM_SAMPLES; i++) {
@@ -123,26 +115,29 @@ void loop(){
     // temp&humi - DHT
     int chk = DHT.read11(DHT11_PIN);
 
-    // alcohol - MQ2
+    // MQ2 - alcohol
     MQ2.update();
-    MQ2_value = MQ2.readSensor();
+    MQ2.setA(3616.1); MQ2.setB(-2.675); 
+    MQ2_alcohol = MQ2.readSensor();
 
-    // MQ4
+    // MQ4 - LPG
     MQ4.update();
     MQ4.setA(3811.9); MQ4.setB(-3.113); 
     MQ4_LPG = MQ4.readSensor(); 
     
+    // MQ4 - CH4
     MQ4.setA(1012.7); MQ4.setB(-2.786); 
     MQ4_CH4 = MQ4.readSensor(); 
 
-    MQ4.setA(200000000000000); MQ4.setB(-19.05); 
-    MQ4_CO = MQ4.readSensor(); 
+    // MQ5 - LPG
+    MQ5.update();
+    MQ5.setA(80.897); MQ5.setB(-2.431); 
+    MQ5_LPG = MQ5.readSensor(); 
     
-    MQ4.setA(60000000000); MQ4.setB(-14.01); 
-    MQ4_Alcohol = MQ4.readSensor(); 
-    
-    MQ4.setA(30000000); MQ4.setB(-8.308); 
-    MQ4_Smoke = MQ4.readSensor(); 
+    // MQ5 - CH4
+    MQ5.setA(177.65); MQ5.setB(-2.56); 
+    MQ5_CH4 = MQ5.readSensor(); 
+
     
     // LIG
     LIG_value = analogRead(A1);
@@ -156,17 +151,15 @@ void loop(){
     Serial.print(",");
     Serial.print(DHT.humidity);
     Serial.print(",");
-    Serial.print(MQ2_value);
+    Serial.print(MQ2_alcohol);
     Serial.print(",");
     Serial.print(MQ4_LPG);
     Serial.print(",");    
     Serial.print(MQ4_CH4);
     Serial.print(",");    
-    Serial.print(MQ4_CO);
+    Serial.print(MQ5_LPG);
     Serial.print(",");    
-    Serial.print(MQ4_Alcohol);
-    Serial.print(",");    
-    Serial.print(MQ4_Smoke);
+    Serial.print(MQ5_CH4);
     Serial.print(",");  
     Serial.print(LIG_value);
     Serial.println();
@@ -178,5 +171,27 @@ void loop(){
 
   Serial.println(); //empty line between samples
 
+
+}
+
+float MQ_setup_calib(MQUnifiedsensor MQ, String name, int regression_method, float RsR0CleanAir){
+  float calcR0_MQ = 0;
+  Serial.print("Calibrating please wait");
+  MQ.setRegressionMethod(regression_method);
+  MQ.init();
+
+  for(int i = 1; i<=10; i ++)
+  {
+    MQ.update(); // Update data, the arduino will read the voltage from the analog pin
+    calcR0_MQ += MQ.calibrate(RsR0CleanAir);
+    Serial.print(".");
+  }
+
+  if(isinf(calcR0_MQ)) {Serial.println("Warning: Conection issue, R0 is infinite (Open circuit detected) "); while(1);}
+  if(calcR0_MQ == 0){Serial.println("Warning: Conection issue found, R0 is zero (Analog pin shorts to ground) "); while(1);}
+  
+  Serial.print(name);
+  Serial.println(" calibration is done.");
+  return calcR0_MQ;
 
 }
