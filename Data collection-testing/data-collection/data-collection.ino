@@ -187,11 +187,10 @@ float MQ_setup_calib(MQUnifiedsensor MQ, String name, int regression_method, flo
     Serial.print(".");
   }
 
-  if(isinf(calcR0_MQ)) {Serial.println("Warning: Conection issue, R0 is infinite (Open circuit detected) "); while(1);}
-  if(calcR0_MQ == 0){Serial.println("Warning: Conection issue found, R0 is zero (Analog pin shorts to ground) "); while(1);}
+  if(isinf(calcR0_MQ)) {Serial.println("Warning: Conection issue, "); Serial.print(name);Serial.println(" R0 is infinite (Open circuit detected)"); while(1);}
+  if(calcR0_MQ == 0){Serial.println("Warning: Conection issue, "); Serial.print(name);Serial.println(" R0 is zero (Analog pin shorts to ground)"); while(1);}
   
-  Serial.print(name);
-  Serial.println(" calibration is done.");
+  Serial.print(name);Serial.println(" calibration is done.");
   return calcR0_MQ;
 
 }
