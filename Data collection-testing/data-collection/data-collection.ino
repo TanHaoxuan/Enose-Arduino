@@ -40,41 +40,6 @@ void setup(){
   //LIG pin
   pinMode(A1, INPUT); 
 
-  //MQ2
-    /*
-    MQ2 Exponential regression:
-    Gas    | a      | b
-    H2     | 987.99 | -2.162
-    LPG    | 574.25 | -2.222
-    CO     | 36974  | -3.109
-    Alcohol| 3616.1 | -2.675
-    Propane| 658.71 | -2.168
-   */
-
-  //MQ4
-    /*
-      Exponential regression:
-    Gas    | a      | b
-    LPG    | 3811.9 | -3.113
-    CH4    | 1012.7 | -2.786
-    CO     | 200000000000000 | -19.05
-    Alcohol| 60000000000 | -14.01
-    smoke  | 30000000 | -8.308
-   */
-  
-  //MQ5
-  /*
-    Exponential regression:
-  Gas    | a      | b
-  H2     | 1163.8 | -3.874
-  LPG    | 80.897 | -2.431
-  CH4    | 177.65 | -2.56
-  CO     | 491204 | -5.826
-  Alcohol| 97124  | -4.918
-  */
-
-
-
   // Pre heat
   Serial.println("Sensors are warming up...");
 	delay(WARM_UP_TIME);
@@ -92,14 +57,14 @@ void setup(){
   MQ5.setR0(calcR0_MQ/10);
 
   Serial.println("All initialized");
-  Serial.println("timestamp,temp,humd,MQ2_alcohol,MQ4_LPG,MQ4_CH4,MQ5_LPG,MQ5_CH4,LIG");
+  Serial.println("timestamp,temp,humd,MQ2_alcohol,MQ2_H2,MQ2_Propane,MQ4_LPG,MQ4_CH4,MQ5_LPG,MQ5_CH4,LIG");
 
 }
 
 void loop(){
 
   unsigned long timestamp;
-  float MQ2_alcohol; 
+  float MQ2_alcohol; float MQ2_H2; float MQ2_Propane;
   float MQ4_LPG;
   float MQ4_CH4;
   float MQ5_LPG;
@@ -119,6 +84,14 @@ void loop(){
     MQ2.update();
     MQ2.setA(3616.1); MQ2.setB(-2.675); 
     MQ2_alcohol = MQ2.readSensor();
+    
+    MQ2.update();
+    MQ2.setA(987.99); MQ2.setB(-2.162); 
+    MQ2_H2 = MQ2.readSensor();    
+    
+    MQ2.update();
+    MQ2.setA(658.71); MQ2.setB(-2.168); 
+    MQ2_Propane = MQ2.readSensor();
 
     // MQ4 - LPG
     MQ4.update();
@@ -152,6 +125,10 @@ void loop(){
     Serial.print(DHT.humidity);
     Serial.print(",");
     Serial.print(MQ2_alcohol);
+    Serial.print(",");
+    Serial.print(MQ2_H2);
+    Serial.print(",");
+    Serial.print(MQ2_Propane);
     Serial.print(",");
     Serial.print(MQ4_LPG);
     Serial.print(",");    
