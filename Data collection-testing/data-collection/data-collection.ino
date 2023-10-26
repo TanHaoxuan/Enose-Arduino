@@ -1,6 +1,7 @@
 // libraries
 #include <dht.h>
 #include <MQUnifiedsensor.h>
+#include <sensor_data.h>
 
 /************************Hardware Related Macros************************************/
 #define         Board                       ("Arduino UNO")
