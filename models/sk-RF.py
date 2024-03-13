@@ -9,53 +9,59 @@ from sklearn.model_selection import train_test_split
 from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay
 from sklearn.metrics import roc_curve, auc
 
-'''''''''' READ & PROCESS CSV DATA '''''''''
+data_folder_path= "./data_drive/data/cleaned_data"
+fruit = 'Banana'
 
-sensor_data_all = []
-
-for root, dr, files in os.walk(r"./data_drive/data/cleaned_data/Orange"):
-    for name in files:
-        if name.endswith('.csv'):
-            file_path = os.path.join(root, name)
-            sensor_data = pd.read_csv(file_path, names=[ "timestamp", "temp", "humd", "MQ2_alcohol", "MQ2_H2", "MQ2_Propane",
-                                                        "MQ4_LPG", "MQ4_CH4", "MQ5_LPG", "MQ5_CH4"],skiprows=1)
-            print("Loaded " + file_path)  # Check if the file path is correct
-            
-            day = name.split('_')[1]  # gets the partciular day
-            if  name.split('_')[2] == 'fresh':
-                fresh = 1
-            else:
-                fresh = 0
-            sensor_data['Fresh'] = fresh
-            sensor_data['day'] = day
-            sensor_data_all.append(sensor_data)
+def load_sensor_data(fruit_name, fruit_id):
+    sensor_data_all = []
+    path = data_folder_path + f"/{fruit_name}"
+    for root, dr, files in os.walk(path):
+        for name in files:
+            if name.endswith('.csv'):
+                file_path = os.path.join(root, name)
+                sensor_data = pd.read_csv(file_path, names=[
+                    "timestamp", "temp", "humd", "MQ2_alcohol", "MQ2_H2", "MQ2_Propane",
+                    "MQ4_LPG", "MQ4_CH4", "MQ5_LPG", "MQ5_CH4"
+                ], skiprows=1)
+                print("Loaded " + file_path)
+                
+                day = name.split('_')[1]
+                fresh = 1 if name.split('_')[2] == 'fresh' else 0
+                
+                sensor_data['Fruit'] = fruit_id
+                sensor_data['Fresh'] = fresh
+                sensor_data['day'] = day
+                sensor_data_all.append(sensor_data)
     
-Data_comb = pd.concat(sensor_data_all)
-print("All files are loaded.")
+    print("All files are loaded for " + f"{fruit_name}")            
+    return pd.concat(sensor_data_all)
+
+def plot_sensor_data(df, title):
+    average_data = df.groupby(['day']).mean()
+    plt.figure(figsize=(12, 8))
+    for column in average_data.columns:
+        if column != 'timestamp':
+            plt.plot(average_data.index, average_data[column], label=column)
+    plt.xlabel('Day')
+    plt.ylabel('Average Sensor Reading/ppm')
+    plt.title(title)
+    plt.legend()
+    plt.show()
+
+'''''''''' READ & PROCESS CSV DATA '''''''''
+# 0-Banana 1-Orange 2-Apple 3-Blueberry
+Data_comb = load_sensor_data(fruit, 0)
 
 
 '''''''''' VISUALISE DATA '''''''''
+plot_sensor_data(Data_comb, f'Average Sensor Data of {fruit}')
 
-# Group the data by day and sensor, and calculate the average sensor readings
-average_data = Data_comb.groupby(['day']).mean()
-
-# Plot the average sensor readings for each day
-plt.figure(figsize=(12, 8))
-for column in average_data.columns:
-    if column != 'timestamp':
-        plt.plot(average_data.index, average_data[column], label=column)
-
-plt.xlabel('Day')
-plt.ylabel('Average Sensor Reading')
-plt.title('Average Sensor Data:')
-plt.legend()
-plt.show()
 
 
 '''''''''' PROCESS MODEL DATA '''''''''
 
 # Separate the features (X) and the target variable (y)
-X = Data_comb.drop(['Fresh', 'day', 'timestamp'], axis=1)  # Drop 'day' and 'timestamp' as well if they are not features
+X = Data_comb.drop(['Fresh', 'day', 'timestamp', 'Fruit'], axis=1)  # Drop 'day' and 'timestamp' as well if they are not features
 y = Data_comb['Fresh']
 
 # Splitting dataset into training and testing set
