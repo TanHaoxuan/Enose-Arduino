@@ -9,7 +9,7 @@ from sklearn.model_selection import train_test_split
 from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay
 from sklearn.metrics import roc_curve, auc
 
-data_folder_path= "./data_drive/data/cleaned_data"
+data_folder_path= "../data/cleaned_data"
 fruit = 'Banana'
 
 def load_sensor_data(fruit_name, fruit_id):
@@ -37,6 +37,7 @@ def load_sensor_data(fruit_name, fruit_id):
     return pd.concat(sensor_data_all)
 
 def plot_sensor_data(df, title):
+    df['day'] = df['day'].astype(int) #Hard code
     average_data = df.groupby(['day']).mean()
     plt.figure(figsize=(12, 8))
     for column in average_data.columns:
