@@ -118,7 +118,7 @@ kf = KFold(n_splits=n_splits, shuffle=True, random_state=42)
 fold_accuracy_scores = []
 fold_precision_scores = []
 fold_recall_scores = []
-
+training_time=0
 for fold, (train_index, test_index) in enumerate(kf.split(X), 1):
 
     # Splitting dataset into training and testing set
@@ -150,7 +150,7 @@ for fold, (train_index, test_index) in enumerate(kf.split(X), 1):
     
     model.fit(X_train, y_train)
     
-    end_time = time.time()
+    training_time += (time.time()-start_time)
     
     
     y_pred = model.predict(X_test)
@@ -172,7 +172,7 @@ print("\nModel Name:", model.__class__.__name__)
 model_params = model.get_params()
 for param, value in model_params.items():
     print(f"{param}: {value}")
-print("\nTraining Time: {:.2f} seconds".format(end_time - start_time))
+print("\nTraining Time: {:.2f} seconds".format(training_time))
 print(f"Balance of data: {balancing_data}")
 print(f"Polynomial Features order: {order}")
 print(f"K Fold: {n_splits}")

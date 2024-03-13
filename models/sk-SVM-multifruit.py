@@ -15,6 +15,8 @@ from sklearn.metrics import accuracy_score, precision_score, recall_score
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay
 from sklearn.metrics import roc_curve, auc
+from sklearn.preprocessing import label_binarize
+
 
 data_folder_path= "../data/cleaned_data"
 
@@ -118,7 +120,7 @@ kf = KFold(n_splits=n_splits, shuffle=True, random_state=42)
 fold_accuracy_scores = []
 fold_precision_scores = []
 fold_recall_scores = []
-
+training_time=0
 for fold, (train_index, test_index) in enumerate(kf.split(X), 1):
 
     # Splitting dataset into training and testing set
@@ -153,10 +155,10 @@ for fold, (train_index, test_index) in enumerate(kf.split(X), 1):
 
     multi_model.fit(X_train, y_train)
 
-    end_time = time.time()
+    training_time += (time.time()-start_time)
+    
 
-
-    y_pred = model.predict(X_test)
+    y_pred = multi_model.predict(X_test)
     accuracy = accuracy_score(y_test, y_pred)
     precision = precision_score(y_test, y_pred, average='macro')  # Specify average method for multi-class/multi-label targets
     recall = recall_score(y_test, y_pred, average='macro')  # Specify average method for multi-class/multi-label targets
@@ -175,7 +177,7 @@ print("\nModel Name:", model.__class__.__name__)
 model_params = model.get_params()
 for param, value in model_params.items():
     print(f"{param}: {value}")
-print("\nTraining Time: {:.2f} seconds".format(end_time - start_time))
+print("\nTraining Time: {:.2f} seconds".format(training_time))
 print(f"Balance of data: {balancing_data}")
 print(f"Polynomial Features order: {order}")
 print(f"K Fold: {n_splits}")
@@ -201,24 +203,52 @@ for i, target_name in enumerate(y.columns):
 # Calculate ROC curve and AUC for the binary classification case
 # The predict_proba will give us a list of [probabilities_for_fruit, probabilities_for_fresh]
 
-# Get the probabilities for all classes for the 'Fresh' output
-probs_fresh = model.predict_proba(X_test)[1]  # This will give us the probabilities for the 'Fresh' output
 
-# Now you can get the probabilities for the positive class of 'Fresh'
-y_pred_prob_fresh = probs_fresh[:, 1]  # This is assuming that '1' signifies the positive class for 'Fresh'
+# Assuming 'Fresh' is the second target and you're interested in its probabilities
+probs_fresh_list = multi_model.predict_proba(X_test)  # This returns a list of arrays
+if len(probs_fresh_list) > 1:  # Ensure there's more than one target
+    probs_fresh = probs_fresh_list[1]  # Get the array for 'Fresh', assuming it's the second target
+    y_pred_prob_fresh = probs_fresh[:, 1]  # Probabilities of the positive class for 'Fresh'
 
-# Now you can use y_pred_prob_fresh to compute ROC curve and AUC as before
-fpr, tpr, _ = roc_curve(y_test['Fresh'], y_pred_prob_fresh)
-roc_auc = auc(fpr, tpr)
+    # Compute ROC curve and AUC for 'Fresh'
+    fpr, tpr, _ = roc_curve(y_test['Fresh'], y_pred_prob_fresh)
+    roc_auc = auc(fpr, tpr)
 
-plt.figure()
-plt.plot(fpr, tpr, color='darkorange', lw=2, label='ROC curve (area = %0.2f)' % roc_auc)
+    plt.figure()
+    plt.plot(fpr, tpr, color='darkorange', lw=2, label='ROC curve (area = %0.2f)' % roc_auc)
+    plt.plot([0, 1], [0, 1], color='navy', lw=2, linestyle='--')
+    plt.xlim([0.0, 1.0])
+    plt.ylim([0.0, 1.05])
+    plt.xlabel('False Positive Rate')
+    plt.ylabel('True Positive Rate')
+    plt.title('Receiver Operating Characteristic for Fresh')
+    plt.legend(loc="lower right")
+    plt.show()
+else:
+    print("Unexpected structure of probabilities returned.")
+
+# Assuming 'Fruit' is the first target
+probs_fruit_list = multi_model.predict_proba(X_test)
+probs_fruit = probs_fruit_list[0]  # Probabilities for 'Fruit'
+
+# Binarize the 'Fruit' outcomes for multi-class ROC/AUC calculation
+y_test_fruit_binarized = label_binarize(y_test['Fruit'], classes=np.unique(y_test['Fruit']))
+
+# Calculate AUC for each class
+for i, class_name in enumerate(np.unique(y_test['Fruit'])):
+    if len(y_test_fruit_binarized[0]) > 1:  # Ensure it's multi-class
+        fpr, tpr, _ = roc_curve(y_test_fruit_binarized[:, i], probs_fruit[:, i])
+        roc_auc = auc(fpr, tpr)
+        plt.plot(fpr, tpr, lw=2, label=f'ROC curve for class {class_name} (area = {roc_auc:.2f})')
+    else:
+        print(f"Skipping AUC for 'Fruit' class {class_name} due to insufficient data.")
+
+# Plotting details
 plt.plot([0, 1], [0, 1], color='navy', lw=2, linestyle='--')
 plt.xlim([0.0, 1.0])
 plt.ylim([0.0, 1.05])
 plt.xlabel('False Positive Rate')
 plt.ylabel('True Positive Rate')
-plt.title('Receiver Operating Characteristic for Fresh')
+plt.title('Receiver Operating Characteristic for Fruit')
 plt.legend(loc="lower right")
 plt.show()
-

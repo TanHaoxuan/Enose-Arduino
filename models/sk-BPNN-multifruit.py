@@ -118,7 +118,7 @@ kf = KFold(n_splits=n_splits, shuffle=True, random_state=42)
 fold_accuracy_scores = []
 fold_precision_scores = []
 fold_recall_scores = []
-
+training_time=0
 for fold, (train_index, test_index) in enumerate(kf.split(X), 1):
 
     # Splitting dataset into training and testing set
@@ -157,7 +157,7 @@ for fold, (train_index, test_index) in enumerate(kf.split(X), 1):
 
     model.fit(X_train, y_train)
 
-    end_time = time.time()
+    training_time += (time.time()-start_time)
 
 
     y_pred = model.predict(X_test)
@@ -179,7 +179,7 @@ print("\nModel Name:", model.__class__.__name__)
 model_params = model.get_params()
 for param, value in model_params.items():
     print(f"{param}: {value}")
-print("\nTraining Time: {:.2f} seconds".format(end_time - start_time))
+print("\nTraining Time: {:.2f} seconds".format(training_time))
 print(f"Balance of data: {balancing_data}")
 print(f"Polynomial Features order: {order}")
 print(f"K Fold: {n_splits}")
@@ -206,11 +206,15 @@ for i, target_name in enumerate(y.columns):
 # The predict_proba will give us a list of [probabilities_for_fruit, probabilities_for_fresh]
 
 # Get the probabilities for all classes for the 'Fresh' output
-probs_fresh = model.predict_proba(X_test)[1]  # This will give us the probabilities for the 'Fresh' output
+#probs_fresh = model.predict_proba(X_test)[1]  # This will give us the probabilities for the 'Fresh' output
 
 # Now you can get the probabilities for the positive class of 'Fresh'
-y_pred_prob_fresh = probs_fresh[:, 1]  # This is assuming that '1' signifies the positive class for 'Fresh'
-
+#y_pred_prob_fresh = probs_fresh[:, 1]  # This is assuming that '1' signifies the positive class for 'Fresh'
+probs = model.predict_proba(X_test)  # Get probabilities for each class
+if probs.ndim > 1 and probs.shape[1] > 1:
+    y_pred_prob_fresh = probs[:, 1]  # This assumes '1' signifies the positive class for 'Fresh'
+else:
+    print("Error: Unexpected shape or dimensions for probability array.")
 # Now you can use y_pred_prob_fresh to compute ROC curve and AUC as before
 fpr, tpr, _ = roc_curve(y_test['Fresh'], y_pred_prob_fresh)
 roc_auc = auc(fpr, tpr)
