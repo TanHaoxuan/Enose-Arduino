@@ -1,4 +1,7 @@
 import pandas as pd
+import joblib
+from sklearn.preprocessing import PolynomialFeatures
+
 
 apple = {
     "temp": {"Min": 28.0, "Max": 33.0},
@@ -83,7 +86,12 @@ orange_normalized = normalize_data_points(raw_data, orange)
 banana_normalized = normalize_data_points(raw_data, banana)
 blueberry_normalized = normalize_data_points(raw_data, blueberry)
 
-
+model_name = 'RF'
+balancing_data = True
+order=1
+n_splits  =5
+model = joblib.load(f'./models/{model_name}-{balancing_data}-order{order}-k{n_splits}.joblib')
+poly = joblib.load(f'./models/{model_name}-poly_features.joblib')
 
 # Transform normalized data using polynomial features and predict
 banana_pred_df = pd.DataFrame(model.predict(poly.transform(banana_normalized)))
@@ -96,7 +104,7 @@ combined_pred_df = pd.concat([apple_pred_df, orange_pred_df, banana_pred_df, blu
 
 # Define mappings for fruit and freshness
 fruit_mapping = {0: "Apple", 1: "Orange", 2: "Banana", 3: "Blueberry"}
-freshness_mapping = {0: "Not Fresh", 1: "Fresh"}
+freshness_mapping = {0: "Not Fresh", 1: "Fresh"} #try to have more status
 
 most_frequent_predictions = combined_pred_df.mode().iloc[0]
 labeled_fruit = fruit_mapping[most_frequent_predictions.iloc[0]]

@@ -16,6 +16,8 @@ from sklearn.metrics import accuracy_score, precision_score, recall_score
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay
 from sklearn.metrics import roc_curve, auc
+from sklearn.preprocessing import label_binarize
+
 
 data_folder_path= "../data/cleaned_data"
 
@@ -130,38 +132,34 @@ for fold, (train_index, test_index) in enumerate(kf.split(X), 1):
     
     '''''''''' TRAIN MODEL '''''''''
 
-    # Define and train the MLPClassifier
-    model = MLPClassifier(
-        hidden_layer_sizes=(100,),  # Example: one hidden layer with 100 neurons
-        activation='relu',  # Activation function for the hidden layer
-        solver='adam',  # The solver for weight optimization
-        alpha=0.0001,  # L2 penalty (regularization term) parameter
-        batch_size='auto',  # Size of minibatches for stochastic optimizers
-        learning_rate='constant',  # Learning rate schedule for weight updates
-        learning_rate_init=0.001,  # The initial learning rate
-        max_iter=2000,  # Maximum number of iterations
-        shuffle=True,  # Whether to shuffle samples in each iteration
-        random_state=42,  # Ensures reproducibility
-        tol=0.0001,  # Tolerance for the optimization
-        verbose=False,  # Whether to print progress messages to stdout
-        warm_start=False,  # Reuse the solution of the previous call to fit as initialization
-        momentum=0.9,  # Momentum for gradient descent update
-        nesterovs_momentum=True,  # Whether to use Nesterov’s momentum
-        early_stopping=False,  # Whether to use early stopping to terminate training when validation score is not improving
-        validation_fraction=0.1,  # The proportion of training data to set aside as validation set for early stopping
-        beta_1=0.9,  # Exponential decay rate for estimates of first moment vector in adam
-        beta_2=0.999,  # Exponential decay rate for estimates of second moment vector in adam
-        epsilon=1e-08,  # Value for numerical stability in adam
+    # Define the SVM model
+    model = SVC(
+        C=1.0,  # Regularization strength
+        kernel='rbf',  # Kernel type
+        gamma='scale',  # Kernel coefficient
+        degree=3,  # Polynomial kernel degree
+        coef0=0.0,  # Independent term in kernel function
+        shrinking=True,  # Use shrinking heuristic
+        probability=True,  # Enable probability estimates
+        tol=1e-3,  # Tolerance for stopping criterion
+        cache_size=200,  # Kernel cache size (in MB)
+        class_weight=None,  # Class weights
+        verbose=False,  # Verbose output
+        max_iter=-1,  # Max iterations (-1 for no limit)
+        decision_function_shape='ovr',  # Decision function shape
+        break_ties=False,  # Break ties according to confidence
+        random_state=42  # Seed for random number generation
     )
+    multi_model = MultiOutputClassifier(model)
 
     start_time = time.time()
 
-    model.fit(X_train, y_train)
+    multi_model.fit(X_train, y_train)
 
     training_time += (time.time()-start_time)
+    
 
-
-    y_pred = model.predict(X_test)
+    y_pred = multi_model.predict(X_test)
     accuracy = accuracy_score(y_test, y_pred)
     precision = precision_score(y_test, y_pred, average='macro')  # Specify average method for multi-class/multi-label targets
     recall = recall_score(y_test, y_pred, average='macro')  # Specify average method for multi-class/multi-label targets
@@ -173,7 +171,8 @@ for fold, (train_index, test_index) in enumerate(kf.split(X), 1):
     print(f"Fold #{fold} - Accuracy: {accuracy} Precision: {precision} Recall: {recall}")
 
 #save the model
-joblib.dump(model, f'.models/BPNN-{balancing_data}-order{order}-k{n_splits}.joblib')
+joblib.dump(multi_model, f'./models/SVM-{balancing_data}-order{order}-k{n_splits}.joblib')
+joblib.dump(poly, './models/SVM-poly_features.joblib')
 
 '''''''''' EVALUATE MODEL '''''''''
 
@@ -200,35 +199,59 @@ for i, target_name in enumerate(y.columns):
     cm = confusion_matrix(y_test[target_name], y_pred[:, i])
     disp = ConfusionMatrixDisplay(confusion_matrix=cm)
     disp.plot()
-    plt.title(f'BPNN Confusion Matrix for {target_name}')
+    plt.title(f'SVM Confusion Matrix for {target_name}')
     plt.show()
 
 
 # Calculate ROC curve and AUC for the binary classification case
 # The predict_proba will give us a list of [probabilities_for_fruit, probabilities_for_fresh]
 
-# Get the probabilities for all classes for the 'Fresh' output
-#probs_fresh = model.predict_proba(X_test)[1]  # This will give us the probabilities for the 'Fresh' output
 
-# Now you can get the probabilities for the positive class of 'Fresh'
-#y_pred_prob_fresh = probs_fresh[:, 1]  # This is assuming that '1' signifies the positive class for 'Fresh'
-probs = model.predict_proba(X_test)  # Get probabilities for each class
-if probs.ndim > 1 and probs.shape[1] > 1:
-    y_pred_prob_fresh = probs[:, 1]  # This assumes '1' signifies the positive class for 'Fresh'
+# Assuming 'Fresh' is the second target and you're interested in its probabilities
+probs_fresh_list = multi_model.predict_proba(X_test)  # This returns a list of arrays
+if len(probs_fresh_list) > 1:  # Ensure there's more than one target
+    probs_fresh = probs_fresh_list[1]  # Get the array for 'Fresh', assuming it's the second target
+    y_pred_prob_fresh = probs_fresh[:, 1]  # Probabilities of the positive class for 'Fresh'
+
+    # Compute ROC curve and AUC for 'Fresh'
+    fpr, tpr, _ = roc_curve(y_test['Fresh'], y_pred_prob_fresh)
+    roc_auc = auc(fpr, tpr)
+
+    plt.figure()
+    plt.plot(fpr, tpr, color='darkorange', lw=2, label='ROC curve (area = %0.2f)' % roc_auc)
+    plt.plot([0, 1], [0, 1], color='navy', lw=2, linestyle='--')
+    plt.xlim([0.0, 1.0])
+    plt.ylim([0.0, 1.05])
+    plt.xlabel('False Positive Rate')
+    plt.ylabel('True Positive Rate')
+    plt.title('SVM Receiver Operating Characteristic for Fresh')
+    plt.legend(loc="lower right")
+    plt.show()
 else:
-    print("Error: Unexpected shape or dimensions for probability array.")
-# Now you can use y_pred_prob_fresh to compute ROC curve and AUC as before
-fpr, tpr, _ = roc_curve(y_test['Fresh'], y_pred_prob_fresh)
-roc_auc = auc(fpr, tpr)
+    print("Unexpected structure of probabilities returned.")
 
-plt.figure()
-plt.plot(fpr, tpr, color='darkorange', lw=2, label='ROC curve (area = %0.2f)' % roc_auc)
+# Assuming 'Fruit' is the first target
+probs_fruit_list = multi_model.predict_proba(X_test)
+probs_fruit = probs_fruit_list[0]  # Probabilities for 'Fruit'
+
+# Binarize the 'Fruit' outcomes for multi-class ROC/AUC calculation
+y_test_fruit_binarized = label_binarize(y_test['Fruit'], classes=np.unique(y_test['Fruit']))
+
+# Calculate AUC for each class
+for i, class_name in enumerate(np.unique(y_test['Fruit'])):
+    if len(y_test_fruit_binarized[0]) > 1:  # Ensure it's multi-class
+        fpr, tpr, _ = roc_curve(y_test_fruit_binarized[:, i], probs_fruit[:, i])
+        roc_auc = auc(fpr, tpr)
+        plt.plot(fpr, tpr, lw=2, label=f'ROC curve for class {class_name} (area = {roc_auc:.2f})')
+    else:
+        print(f"Skipping AUC for 'Fruit' class {class_name} due to insufficient data.")
+
+# Plotting details
 plt.plot([0, 1], [0, 1], color='navy', lw=2, linestyle='--')
 plt.xlim([0.0, 1.0])
 plt.ylim([0.0, 1.05])
 plt.xlabel('False Positive Rate')
 plt.ylabel('True Positive Rate')
-plt.title('BPNN Receiver Operating Characteristic for Fresh')
+plt.title('SVM Receiver Operating Characteristic for Fruit')
 plt.legend(loc="lower right")
 plt.show()
-

@@ -16,8 +16,6 @@ from sklearn.metrics import accuracy_score, precision_score, recall_score
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay
 from sklearn.metrics import roc_curve, auc
-from sklearn.preprocessing import label_binarize
-
 
 data_folder_path= "../data/cleaned_data"
 
@@ -131,35 +129,32 @@ for fold, (train_index, test_index) in enumerate(kf.split(X), 1):
    
     
     '''''''''' TRAIN MODEL '''''''''
-
-    # Define the SVM model
-    model = SVC(
-        C=1.0,  # Regularization strength
-        kernel='rbf',  # Kernel type
-        gamma='scale',  # Kernel coefficient
-        degree=3,  # Polynomial kernel degree
-        coef0=0.0,  # Independent term in kernel function
-        shrinking=True,  # Use shrinking heuristic
-        probability=True,  # Enable probability estimates
-        tol=1e-3,  # Tolerance for stopping criterion
-        cache_size=200,  # Kernel cache size (in MB)
-        class_weight=None,  # Class weights
-        verbose=False,  # Verbose output
-        max_iter=-1,  # Max iterations (-1 for no limit)
-        decision_function_shape='ovr',  # Decision function shape
-        break_ties=False,  # Break ties according to confidence
-        random_state=42  # Seed for random number generation
+    
+    model = RandomForestClassifier(
+        n_estimators=100,  # Trees in the forest
+        max_depth=10,  # Max depth of trees
+        min_samples_split=2,  # Samples required to split node
+        min_samples_leaf=1,  # Samples required at leaf node
+        max_features='sqrt',  # Features for best split
+        bootstrap=True,  # Use bootstrap samples
+        oob_score=False,  # Use out-of-bag samples to estimate accuracy
+        n_jobs=None,  # Number of jobs to run in parallel
+        random_state=42,  # Seed for randomness
+        verbose=0,  # Control verbosity of process
+        warm_start=False,  # Reuse solution of previous call
+        class_weight=None,  # Weights of classes
+        ccp_alpha=0.0,  # Complexity parameter for Minimal Cost-Complexity Pruning
+        max_samples=None  # If bootstrap is True, number of samples to draw
     )
-    multi_model = MultiOutputClassifier(model)
-
+    
     start_time = time.time()
-
-    multi_model.fit(X_train, y_train)
-
+    
+    model.fit(X_train, y_train)
+    
     training_time += (time.time()-start_time)
     
-
-    y_pred = multi_model.predict(X_test)
+    
+    y_pred = model.predict(X_test)
     accuracy = accuracy_score(y_test, y_pred)
     precision = precision_score(y_test, y_pred, average='macro')  # Specify average method for multi-class/multi-label targets
     recall = recall_score(y_test, y_pred, average='macro')  # Specify average method for multi-class/multi-label targets
@@ -171,7 +166,8 @@ for fold, (train_index, test_index) in enumerate(kf.split(X), 1):
     print(f"Fold #{fold} - Accuracy: {accuracy} Precision: {precision} Recall: {recall}")
 
 #save the model
-joblib.dump(model, f'.models/SVM-{balancing_data}-order{order}-k{n_splits}.joblib')
+joblib.dump(model, f'./models/RF-{balancing_data}-order{order}-k{n_splits}.joblib')
+joblib.dump(poly, './models/RF-poly_features.joblib')
 
 '''''''''' EVALUATE MODEL '''''''''
 
@@ -198,59 +194,31 @@ for i, target_name in enumerate(y.columns):
     cm = confusion_matrix(y_test[target_name], y_pred[:, i])
     disp = ConfusionMatrixDisplay(confusion_matrix=cm)
     disp.plot()
-    plt.title(f'SVM Confusion Matrix for {target_name}')
+    plt.title(f'Random Forest Confusion Matrix for {target_name}')
     plt.show()
 
 
 # Calculate ROC curve and AUC for the binary classification case
 # The predict_proba will give us a list of [probabilities_for_fruit, probabilities_for_fresh]
 
+# Get the probabilities for all classes for the 'Fresh' output
+probs_fresh = model.predict_proba(X_test)[1]  # This will give us the probabilities for the 'Fresh' output
 
-# Assuming 'Fresh' is the second target and you're interested in its probabilities
-probs_fresh_list = multi_model.predict_proba(X_test)  # This returns a list of arrays
-if len(probs_fresh_list) > 1:  # Ensure there's more than one target
-    probs_fresh = probs_fresh_list[1]  # Get the array for 'Fresh', assuming it's the second target
-    y_pred_prob_fresh = probs_fresh[:, 1]  # Probabilities of the positive class for 'Fresh'
+# Now you can get the probabilities for the positive class of 'Fresh'
+y_pred_prob_fresh = probs_fresh[:, 1]  # This is assuming that '1' signifies the positive class for 'Fresh'
 
-    # Compute ROC curve and AUC for 'Fresh'
-    fpr, tpr, _ = roc_curve(y_test['Fresh'], y_pred_prob_fresh)
-    roc_auc = auc(fpr, tpr)
+# Now you can use y_pred_prob_fresh to compute ROC curve and AUC as before
+fpr, tpr, _ = roc_curve(y_test['Fresh'], y_pred_prob_fresh)
+roc_auc = auc(fpr, tpr)
 
-    plt.figure()
-    plt.plot(fpr, tpr, color='darkorange', lw=2, label='ROC curve (area = %0.2f)' % roc_auc)
-    plt.plot([0, 1], [0, 1], color='navy', lw=2, linestyle='--')
-    plt.xlim([0.0, 1.0])
-    plt.ylim([0.0, 1.05])
-    plt.xlabel('False Positive Rate')
-    plt.ylabel('True Positive Rate')
-    plt.title('SVM Receiver Operating Characteristic for Fresh')
-    plt.legend(loc="lower right")
-    plt.show()
-else:
-    print("Unexpected structure of probabilities returned.")
-
-# Assuming 'Fruit' is the first target
-probs_fruit_list = multi_model.predict_proba(X_test)
-probs_fruit = probs_fruit_list[0]  # Probabilities for 'Fruit'
-
-# Binarize the 'Fruit' outcomes for multi-class ROC/AUC calculation
-y_test_fruit_binarized = label_binarize(y_test['Fruit'], classes=np.unique(y_test['Fruit']))
-
-# Calculate AUC for each class
-for i, class_name in enumerate(np.unique(y_test['Fruit'])):
-    if len(y_test_fruit_binarized[0]) > 1:  # Ensure it's multi-class
-        fpr, tpr, _ = roc_curve(y_test_fruit_binarized[:, i], probs_fruit[:, i])
-        roc_auc = auc(fpr, tpr)
-        plt.plot(fpr, tpr, lw=2, label=f'ROC curve for class {class_name} (area = {roc_auc:.2f})')
-    else:
-        print(f"Skipping AUC for 'Fruit' class {class_name} due to insufficient data.")
-
-# Plotting details
+plt.figure()
+plt.plot(fpr, tpr, color='darkorange', lw=2, label='ROC curve (area = %0.2f)' % roc_auc)
 plt.plot([0, 1], [0, 1], color='navy', lw=2, linestyle='--')
 plt.xlim([0.0, 1.0])
 plt.ylim([0.0, 1.05])
 plt.xlabel('False Positive Rate')
 plt.ylabel('True Positive Rate')
-plt.title('SVM Receiver Operating Characteristic for Fruit')
+plt.title('Random Forest Receiver Operating Characteristic for Fresh')
 plt.legend(loc="lower right")
 plt.show()
+

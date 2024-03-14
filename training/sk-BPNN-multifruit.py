@@ -129,31 +129,38 @@ for fold, (train_index, test_index) in enumerate(kf.split(X), 1):
    
     
     '''''''''' TRAIN MODEL '''''''''
-    
-    model = RandomForestClassifier(
-        n_estimators=100,  # Trees in the forest
-        max_depth=10,  # Max depth of trees
-        min_samples_split=2,  # Samples required to split node
-        min_samples_leaf=1,  # Samples required at leaf node
-        max_features='sqrt',  # Features for best split
-        bootstrap=True,  # Use bootstrap samples
-        oob_score=False,  # Use out-of-bag samples to estimate accuracy
-        n_jobs=None,  # Number of jobs to run in parallel
-        random_state=42,  # Seed for randomness
-        verbose=0,  # Control verbosity of process
-        warm_start=False,  # Reuse solution of previous call
-        class_weight=None,  # Weights of classes
-        ccp_alpha=0.0,  # Complexity parameter for Minimal Cost-Complexity Pruning
-        max_samples=None  # If bootstrap is True, number of samples to draw
+
+    # Define and train the MLPClassifier
+    model = MLPClassifier(
+        hidden_layer_sizes=(100,),  # Example: one hidden layer with 100 neurons
+        activation='relu',  # Activation function for the hidden layer
+        solver='adam',  # The solver for weight optimization
+        alpha=0.0001,  # L2 penalty (regularization term) parameter
+        batch_size='auto',  # Size of minibatches for stochastic optimizers
+        learning_rate='constant',  # Learning rate schedule for weight updates
+        learning_rate_init=0.001,  # The initial learning rate
+        max_iter=2000,  # Maximum number of iterations
+        shuffle=True,  # Whether to shuffle samples in each iteration
+        random_state=42,  # Ensures reproducibility
+        tol=0.0001,  # Tolerance for the optimization
+        verbose=False,  # Whether to print progress messages to stdout
+        warm_start=False,  # Reuse the solution of the previous call to fit as initialization
+        momentum=0.9,  # Momentum for gradient descent update
+        nesterovs_momentum=True,  # Whether to use Nesterov’s momentum
+        early_stopping=False,  # Whether to use early stopping to terminate training when validation score is not improving
+        validation_fraction=0.1,  # The proportion of training data to set aside as validation set for early stopping
+        beta_1=0.9,  # Exponential decay rate for estimates of first moment vector in adam
+        beta_2=0.999,  # Exponential decay rate for estimates of second moment vector in adam
+        epsilon=1e-08,  # Value for numerical stability in adam
     )
-    
+
     start_time = time.time()
-    
+
     model.fit(X_train, y_train)
-    
+
     training_time += (time.time()-start_time)
-    
-    
+
+
     y_pred = model.predict(X_test)
     accuracy = accuracy_score(y_test, y_pred)
     precision = precision_score(y_test, y_pred, average='macro')  # Specify average method for multi-class/multi-label targets
@@ -166,7 +173,8 @@ for fold, (train_index, test_index) in enumerate(kf.split(X), 1):
     print(f"Fold #{fold} - Accuracy: {accuracy} Precision: {precision} Recall: {recall}")
 
 #save the model
-joblib.dump(model, f'.models/RF-{balancing_data}-order{order}-k{n_splits}.joblib')
+joblib.dump(model, f'./models/BPNN-{balancing_data}-order{order}-k{n_splits}.joblib')
+joblib.dump(poly, './models/BPNN-poly_features.joblib')
 
 '''''''''' EVALUATE MODEL '''''''''
 
@@ -193,7 +201,7 @@ for i, target_name in enumerate(y.columns):
     cm = confusion_matrix(y_test[target_name], y_pred[:, i])
     disp = ConfusionMatrixDisplay(confusion_matrix=cm)
     disp.plot()
-    plt.title(f'Random Forest Confusion Matrix for {target_name}')
+    plt.title(f'BPNN Confusion Matrix for {target_name}')
     plt.show()
 
 
@@ -201,11 +209,15 @@ for i, target_name in enumerate(y.columns):
 # The predict_proba will give us a list of [probabilities_for_fruit, probabilities_for_fresh]
 
 # Get the probabilities for all classes for the 'Fresh' output
-probs_fresh = model.predict_proba(X_test)[1]  # This will give us the probabilities for the 'Fresh' output
+#probs_fresh = model.predict_proba(X_test)[1]  # This will give us the probabilities for the 'Fresh' output
 
 # Now you can get the probabilities for the positive class of 'Fresh'
-y_pred_prob_fresh = probs_fresh[:, 1]  # This is assuming that '1' signifies the positive class for 'Fresh'
-
+#y_pred_prob_fresh = probs_fresh[:, 1]  # This is assuming that '1' signifies the positive class for 'Fresh'
+probs = model.predict_proba(X_test)  # Get probabilities for each class
+if probs.ndim > 1 and probs.shape[1] > 1:
+    y_pred_prob_fresh = probs[:, 1]  # This assumes '1' signifies the positive class for 'Fresh'
+else:
+    print("Error: Unexpected shape or dimensions for probability array.")
 # Now you can use y_pred_prob_fresh to compute ROC curve and AUC as before
 fpr, tpr, _ = roc_curve(y_test['Fresh'], y_pred_prob_fresh)
 roc_auc = auc(fpr, tpr)
@@ -217,7 +229,7 @@ plt.xlim([0.0, 1.0])
 plt.ylim([0.0, 1.05])
 plt.xlabel('False Positive Rate')
 plt.ylabel('True Positive Rate')
-plt.title('Random Forest Receiver Operating Characteristic for Fresh')
+plt.title('BPNN Receiver Operating Characteristic for Fresh')
 plt.legend(loc="lower right")
 plt.show()
 
