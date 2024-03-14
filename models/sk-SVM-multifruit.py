@@ -3,6 +3,7 @@ import time
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
+import joblib
 
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.svm import SVC  # Import Support Vector Classifier
@@ -169,7 +170,8 @@ for fold, (train_index, test_index) in enumerate(kf.split(X), 1):
 
     print(f"Fold #{fold} - Accuracy: {accuracy} Precision: {precision} Recall: {recall}")
 
-
+#save the model
+joblib.dump(model, f'.models/SVM-{balancing_data}-order{order}-k{n_splits}.joblib')
 
 '''''''''' EVALUATE MODEL '''''''''
 
