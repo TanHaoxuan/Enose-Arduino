@@ -105,7 +105,7 @@ y = balanced_data[['Fruit', 'Fresh']]
 
 
 '''''''''' Polynomial Features '''''''''
-order = 2
+order = 1
 poly = PolynomialFeatures(degree=order, include_bias=False)
 X = poly.fit_transform(X)
 
@@ -191,7 +191,7 @@ for i, target_name in enumerate(y.columns):
     cm = confusion_matrix(y_test[target_name], y_pred[:, i])
     disp = ConfusionMatrixDisplay(confusion_matrix=cm)
     disp.plot()
-    plt.title(f'Confusion Matrix for {target_name}')
+    plt.title(f'Random Forest Confusion Matrix for {target_name}')
     plt.show()
 
 
@@ -215,7 +215,7 @@ plt.xlim([0.0, 1.0])
 plt.ylim([0.0, 1.05])
 plt.xlabel('False Positive Rate')
 plt.ylabel('True Positive Rate')
-plt.title('Receiver Operating Characteristic for Fresh')
+plt.title('Random Forest Receiver Operating Characteristic for Fresh')
 plt.legend(loc="lower right")
 plt.show()
 
