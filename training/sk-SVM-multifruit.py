@@ -82,7 +82,7 @@ if VISUALISE_DATA:
 '''''''''' Combine DF of Different Fruit '''''''''
 
 
-Data_comb = pd.concat([Data_comb_banana, Data_comb_orange], axis=0)
+Data_comb = pd.concat([Data_comb_banana, Data_comb_orange, Data_comb_apple, Data_comb_blueberry], axis=0)
 
 
 '''''''''' Balancing Data '''''''''
@@ -135,7 +135,7 @@ for fold, (train_index, test_index) in enumerate(kf.split(X), 1):
     '''''''''' TRAIN MODEL '''''''''
 
     # Define the SVM model
-    model = SVC(
+    base_model = SVC(
         C=1.0,  # Regularization strength
         kernel='rbf',  # Kernel type
         gamma='scale',  # Kernel coefficient
@@ -152,20 +152,26 @@ for fold, (train_index, test_index) in enumerate(kf.split(X), 1):
         break_ties=False,  # Break ties according to confidence
         random_state=42  # Seed for random number generation
     )
-    multi_model = MultiOutputClassifier(model)
+    model = MultiOutputClassifier(base_model)
 
     start_time = time.time()
 
-    multi_model.fit(X_train, y_train)
+    model.fit(X_train, y_train)
 
     training_time += (time.time()-start_time)
     
 
-    y_pred = multi_model.predict(X_test)
-    accuracy = accuracy_score(y_test, y_pred)
-    precision = precision_score(y_test, y_pred, average='macro')  # Specify average method for multi-class/multi-label targets
-    recall = recall_score(y_test, y_pred, average='macro')  # Specify average method for multi-class/multi-label targets
-
+    y_pred = model.predict(X_test)
+    accuracy =np.mean([accuracy_score(y_test.iloc[:, i], y_pred[:, i]) for i in range(y_test.shape[1])])
+    precision = np.mean([
+        precision_score(y_test.iloc[:, i], y_pred[:, i], average='macro', zero_division=0) 
+        for i in range(y_test.shape[1])
+    ])
+    recall = np.mean([
+        recall_score(y_test.iloc[:, i], y_pred[:, i], average='macro', zero_division=0) 
+        for i in range(y_test.shape[1])
+    ])
+    
     fold_accuracy_scores.append(accuracy)
     fold_precision_scores.append(precision)
     fold_recall_scores.append(recall)
@@ -175,7 +181,7 @@ for fold, (train_index, test_index) in enumerate(kf.split(X), 1):
 #save the model
 save = False
 if save:
-    joblib.dump(multi_model, f'./models/SVM-{balancing_data}-order{order}-k{n_splits}.joblib')
+    joblib.dump(model, f'./models/SVM-{balancing_data}-order{order}-k{n_splits}.joblib')
     joblib.dump(poly, './models/SVM-poly_features.joblib')
 
 '''''''''' EVALUATE MODEL '''''''''
@@ -212,7 +218,7 @@ for i, target_name in enumerate(y.columns):
 
 
 # Assuming 'Fresh' is the second target and you're interested in its probabilities
-probs_fresh_list = multi_model.predict_proba(X_test)  # This returns a list of arrays
+probs_fresh_list = model.predict_proba(X_test)  # This returns a list of arrays
 if len(probs_fresh_list) > 1:  # Ensure there's more than one target
     probs_fresh = probs_fresh_list[1]  # Get the array for 'Fresh', assuming it's the second target
     y_pred_prob_fresh = probs_fresh[:, 1]  # Probabilities of the positive class for 'Fresh'
@@ -235,7 +241,7 @@ else:
     print("Unexpected structure of probabilities returned.")
 
 # Assuming 'Fruit' is the first target
-probs_fruit_list = multi_model.predict_proba(X_test)
+probs_fruit_list = model.predict_proba(X_test)
 probs_fruit = probs_fruit_list[0]  # Probabilities for 'Fruit'
 
 # Binarize the 'Fruit' outcomes for multi-class ROC/AUC calculation
