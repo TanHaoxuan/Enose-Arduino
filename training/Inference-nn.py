@@ -97,10 +97,14 @@ pred_df = pd.DataFrame(model.predict(poly.transform(normalized_df)))
 fruit_mapping = {0: "Apple", 1: "Orange", 2: "Banana", 3: "Blueberry"}
 freshness_mapping = {0: "Not Fresh", 1: "Fresh"} #try to have more status
 
+result = pd.DataFrame()
+result['fruit_column'] = pred_df[0].map(fruit_mapping)
+result['freshness_column'] = pred_df[1].map(freshness_mapping)
+print(result)
+
 most_frequent_predictions = pred_df.mode().iloc[0]
 labeled_fruit = fruit_mapping[most_frequent_predictions.iloc[0]]
 labeled_freshness = freshness_mapping[most_frequent_predictions.iloc[1]]
-
 print("Most Frequent Fruit:", labeled_fruit)
 print("Most Frequent Freshness:", labeled_freshness)
 
