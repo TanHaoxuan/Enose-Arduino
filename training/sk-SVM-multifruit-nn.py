@@ -197,7 +197,7 @@ for fold, (train_index, test_index) in enumerate(kf.split(X), 1):
     print(f"Fold #{fold} - Accuracy: {accuracy} Precision: {precision} Recall: {recall}")
 
 #save the model
-save = True
+save = False
 if save:
     joblib.dump(model, f'./models/SVM-{balancing_data}-order{order}-k{n_splits}-nn.joblib')
     joblib.dump(poly, './models/SVM-poly_features-nn.joblib')
