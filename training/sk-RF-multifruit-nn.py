@@ -10,6 +10,7 @@ from sklearn.svm import SVC  # Import Support Vector Classifier
 from sklearn.neural_network import MLPClassifier  # Import MLPClassifier
 from sklearn.multioutput import MultiOutputClassifier
 
+from sklearn.preprocessing import MinMaxScaler
 from sklearn.preprocessing import PolynomialFeatures
 from sklearn.model_selection import KFold
 from sklearn.metrics import accuracy_score, precision_score, recall_score
@@ -17,7 +18,7 @@ from sklearn.model_selection import train_test_split
 from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay
 from sklearn.metrics import roc_curve, auc
 
-data_folder_path= "../data/cleaned_data"
+data_folder_path= "../data/cleaned_nn_data"
 
 
 def load_sensor_data(fruit_name, fruit_id):
@@ -29,8 +30,8 @@ def load_sensor_data(fruit_name, fruit_id):
                 file_path = os.path.join(root, name)
                 sensor_data = pd.read_csv(file_path, names=[
                     "timestamp", "temp", "humd", "MQ2_alcohol", "MQ2_H2", "MQ2_Propane",
-                    "MQ4_LPG", "MQ4_CH4", "MQ5_LPG", "MQ5_CH4"
-                ], skiprows=1)
+                    "MQ4_LPG", "MQ4_CH4", "MQ5_LPG", "MQ5_CH4","LIG"
+                ], skiprows=1,index_col=False)
                 #print("Loaded " + file_path)
                 
                 day = name.split('_')[1]
@@ -82,6 +83,21 @@ if VISUALISE_DATA:
 
 Data_comb = pd.concat([Data_comb_banana, Data_comb_orange, Data_comb_apple, Data_comb_blueberry], axis=0)
 
+column_ranges = {
+    'temp': (10, 40),
+    'humd': (50, 101),
+    'MQ2_alcohol': (1, 5000),
+    'MQ2_H2': (0, 5000),
+    'MQ4_LPG': (0, 5000),
+    'MQ4_CH4': (0, 5000),
+    'MQ5_LPG': (0, 5000),
+    'MQ5_CH4': (0, 5000),
+    'LIG': (0, 5000),
+}
+
+        # Filter rows based on the specified ranges for each column
+for col, (min_range, max_range) in column_ranges.items():
+    Data_comb = Data_comb[(Data_comb[col] >= min_range) & (Data_comb[col] <= max_range)]
 
 '''''''''' Balancing Data '''''''''
 balancing_data=True
@@ -103,8 +119,14 @@ else:
 
 '''''''''' PROCESS MODEL DATA '''''''''
 # Separate the features (X) and the target variable (y)
-X = balanced_data.drop(['Fresh', 'Fruit','day', 'timestamp'], axis=1)  # Drop 'day' and 'timestamp' as well if they are not features
+X_temp = balanced_data.drop(['Fresh', 'Fruit','day', 'timestamp','LIG'], axis=1)  # Drop 'day' and 'timestamp' as well if they are not features
+scaler = MinMaxScaler()
+normalized_data = scaler.fit_transform(X_temp)
+X = pd.DataFrame(normalized_data, columns=X_temp.columns)
+
 y = balanced_data[['Fruit', 'Fresh']]
+y.loc[:, 'Fruit'] = y['Fruit'].astype(int)
+y.loc[:, 'Fresh'] = y['Fresh'].astype(int)
 
 
 '''''''''' Polynomial Features '''''''''
@@ -174,10 +196,10 @@ for fold, (train_index, test_index) in enumerate(kf.split(X), 1):
     print(f"Fold #{fold} - Accuracy: {accuracy} Precision: {precision} Recall: {recall}")
 
 #save the model
-save = False
+save = True
 if save:
-    joblib.dump(model, f'./models/RF-{balancing_data}-order{order}-k{n_splits}.joblib')
-    joblib.dump(poly, './models/RF-poly_features.joblib')
+    joblib.dump(model, f'./models/RF-{balancing_data}-order{order}-k{n_splits}-nn.joblib')
+    joblib.dump(poly, './models/RF-poly_features-nn.joblib')
 
 '''''''''' EVALUATE MODEL '''''''''
 
@@ -232,3 +254,19 @@ plt.title('Random Forest Receiver Operating Characteristic for Fresh')
 plt.legend(loc="lower right")
 plt.show()
 
+
+def find_min_max(df):
+    column_min_max = {}
+    for col in df.columns[1:]:  # Skip 'timestamp' column
+        balanced_data[col] = pd.to_numeric(balanced_data[col], errors='coerce')
+    
+    for col in df.columns[1:]:  # Skip 'timestamp' column for min/max calculations
+        if col not in column_min_max:
+            column_min_max[col] = {'min': df[col].min(), 'max': df[col].max()}
+    else:
+        column_min_max[col]['min'] = min(column_min_max[col]['min'], df[col].min())
+        column_min_max[col]['max'] = max(column_min_max[col]['max'], df[col].max())
+    
+    for col, min_max in column_min_max.items():
+        
+        print(f"{col}: Min={min_max['min']}, Max={min_max['max']}")
