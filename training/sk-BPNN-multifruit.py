@@ -66,10 +66,12 @@ Data_comb_apple = load_sensor_data('Apple', 2)
 Data_comb_blueberry = load_sensor_data('Blueberry', 3)
 
 '''''''''' VISUALISE DATA '''''''''
-plot_sensor_data(Data_comb_banana, 'Average Sensor Data of Banana')
-plot_sensor_data(Data_comb_orange, 'Average Sensor Data of Orange')
-plot_sensor_data(Data_comb_apple, 'Average Sensor Data of Apple')
-plot_sensor_data(Data_comb_blueberry, 'Average Sensor Data of Blueberry')
+VISUALISE_DATA = False
+if VISUALISE_DATA:
+    plot_sensor_data(Data_comb_banana, 'Average Sensor Data of Banana')
+    plot_sensor_data(Data_comb_orange, 'Average Sensor Data of Orange')
+    plot_sensor_data(Data_comb_apple, 'Average Sensor Data of Apple')
+    plot_sensor_data(Data_comb_blueberry, 'Average Sensor Data of Blueberry')
 
 
 
@@ -173,8 +175,10 @@ for fold, (train_index, test_index) in enumerate(kf.split(X), 1):
     print(f"Fold #{fold} - Accuracy: {accuracy} Precision: {precision} Recall: {recall}")
 
 #save the model
-joblib.dump(model, f'./models/BPNN-{balancing_data}-order{order}-k{n_splits}.joblib')
-joblib.dump(poly, './models/BPNN-poly_features.joblib')
+save = False
+if save:
+    joblib.dump(model, f'./models/BPNN-{balancing_data}-order{order}-k{n_splits}.joblib')
+    joblib.dump(poly, './models/BPNN-poly_features.joblib')
 
 '''''''''' EVALUATE MODEL '''''''''
 

@@ -68,10 +68,12 @@ Data_comb_apple = load_sensor_data('Apple', 2)
 Data_comb_blueberry = load_sensor_data('Blueberry', 3)
 
 '''''''''' VISUALISE DATA '''''''''
-plot_sensor_data(Data_comb_banana, 'Average Sensor Data of Banana')
-plot_sensor_data(Data_comb_orange, 'Average Sensor Data of Orange')
-plot_sensor_data(Data_comb_apple, 'Average Sensor Data of Apple')
-plot_sensor_data(Data_comb_blueberry, 'Average Sensor Data of Blueberry')
+VISUALISE_DATA = False
+if VISUALISE_DATA:
+    plot_sensor_data(Data_comb_banana, 'Average Sensor Data of Banana')
+    plot_sensor_data(Data_comb_orange, 'Average Sensor Data of Orange')
+    plot_sensor_data(Data_comb_apple, 'Average Sensor Data of Apple')
+    plot_sensor_data(Data_comb_blueberry, 'Average Sensor Data of Blueberry')
 
 
 
@@ -140,7 +142,7 @@ for fold, (train_index, test_index) in enumerate(kf.split(X), 1):
         degree=3,  # Polynomial kernel degree
         coef0=0.0,  # Independent term in kernel function
         shrinking=True,  # Use shrinking heuristic
-        probability=True,  # Enable probability estimates
+        probability=False,  # Enable probability estimates
         tol=1e-3,  # Tolerance for stopping criterion
         cache_size=200,  # Kernel cache size (in MB)
         class_weight=None,  # Class weights
@@ -171,8 +173,10 @@ for fold, (train_index, test_index) in enumerate(kf.split(X), 1):
     print(f"Fold #{fold} - Accuracy: {accuracy} Precision: {precision} Recall: {recall}")
 
 #save the model
-joblib.dump(multi_model, f'./models/SVM-{balancing_data}-order{order}-k{n_splits}.joblib')
-joblib.dump(poly, './models/SVM-poly_features.joblib')
+save = False
+if save:
+    joblib.dump(multi_model, f'./models/SVM-{balancing_data}-order{order}-k{n_splits}.joblib')
+    joblib.dump(poly, './models/SVM-poly_features.joblib')
 
 '''''''''' EVALUATE MODEL '''''''''
 
