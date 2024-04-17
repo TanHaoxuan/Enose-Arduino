@@ -15,24 +15,24 @@ Algorithms tested:
 
 ## Result
 ### Random Forest
-0: "fresh", 1: "rotten"
+0: "fresh", 1: "rotten"\
 ![This is an alt text.](/images/RF_fresh.png )
 
-0: "Apple", 1: "Orange", 2: "Banana", 3: "Blueberry" 
+0: "Apple", 1: "Orange", 2: "Banana", 3: "Blueberry" \
 ![This is an alt text.](/images/RF_fruit.png )
 
 ### Support Vector Machine (SVM)
-0: "fresh", 1: "rotten"
+0: "fresh", 1: "rotten"\
 ![This is an alt text.](/images/SVM_fresh.png )
 
-0: "Apple", 1: "Orange", 2: "Banana", 3: "Blueberry" 
+0: "Apple", 1: "Orange", 2: "Banana", 3: "Blueberry" \
 ![This is an alt text.](/images/SVM_fruit.png )
 
 ### Back Propagation Neural Network (BPNN)
-0: "fresh", 1: "rotten"
+0: "fresh", 1: "rotten"\
 ![This is an alt text.](/images/BPNN_fresh.png )
 
-0: "Apple", 1: "Orange", 2: "Banana", 3: "Blueberry" 
+0: "Apple", 1: "Orange", 2: "Banana", 3: "Blueberry"\ 
 ![This is an alt text.](/images/BPNN_fruit.png )
 
 ## Comparsion
